@@ -1,5 +1,5 @@
 /*****************************************************************************************/
-//							    		プログラム名									 //
+// プログラム名
 /*****************************************************************************************/
 //
 //
@@ -10,7 +10,7 @@
 
 
 //=======================================================================================//
-//									インクルードヘッダ
+// インクルードヘッダ
 //=======================================================================================//
 #include <ode/ode.h>
 #include <drawstuff/drawstuff.h>
@@ -18,7 +18,7 @@
 
 
 //=======================================================================================//
-//									変数関数の定義宣言
+// 変数関数の定義宣言
 //=======================================================================================//
 
 #ifdef _MSC_VER
@@ -54,7 +54,7 @@ static dReal H_ANGLE  = 0.0;     // ヒンジ角
 
 
 //=======================================================================================//
-//										衝突検出
+// 衝突検出
 //=======================================================================================//
 static void nearCallback(void *data, dGeomID o1, dGeomID o2)
 {
@@ -113,41 +113,40 @@ static void controlSlider(dReal target)
 
 
 //=======================================================================================//
-//									ロボットの描画
+// ロボットの描画
 //=======================================================================================//
 static void drawRobot()
 {
-  //球形の描画
-  dsSetColor(1.2,0.0,0.0); 
-  dsDrawSphere(dBodyGetPosition(obj[1].body),dBodyGetRotation(obj[0].body),obj[0].r);
-  //円筒の描画
-  dsSetColor(1.2,1.0,0.0); 
-  dsDrawCylinder(dBodyGetPosition(obj[0].body),dBodyGetRotation(obj[1].body),obj[1].l,obj[1].r);
-  //カプセルの描画
-  dsSetColor(1.2,0.0,1.0); 
-  dsDrawCapsule(dBodyGetPosition(obj[2].body),dBodyGetRotation(obj[2].body),obj[2].l,obj[2].r);
-  //長方形の描画
-  dsSetColor(0.2,0.0,0.0); 
-  dVector3 sides;
-  dGeomBoxGetLengths(obj[3].geom,sides);
-  dsDrawBox(dBodyGetPosition(obj[3].body),dBodyGetRotation(obj[3].body),sides);
-
-
+	//球形の描画
+	dsSetColor(1.2,0.0,0.0); 
+	dsDrawSphere(dBodyGetPosition(obj[1].body),dBodyGetRotation(obj[0].body),obj[0].r);
+	//円筒の描画
+	dsSetColor(1.2,1.0,0.0); 
+	dsDrawCylinder(dBodyGetPosition(obj[0].body),dBodyGetRotation(obj[1].body),obj[1].l,obj[1].r);
+	//カプセルの描画
+	dsSetColor(1.2,0.0,1.0); 
+	dsDrawCapsule(dBodyGetPosition(obj[2].body),dBodyGetRotation(obj[2].body),obj[2].l,obj[2].r);
+	//長方形の描画
+	dsSetColor(0.2,0.0,0.0); 
+	dVector3 sides;
+	dGeomBoxGetLengths(obj[3].geom,sides);
+	dsDrawBox(dBodyGetPosition(obj[3].body),dBodyGetRotation(obj[3].body),sides);
 }
 
 //=======================================================================================//
-//									シミュレーションループ
+// シミュレーションループ
 //=======================================================================================//
 static void simLoop(int pause)
 {
 
-  if (!pause) {
-    STEPS++;
-    dSpaceCollide(space,0,&nearCallback);
-    dWorldStep(world,0.01);
-    dJointGroupEmpty(contactgroup);
-  }
+	if (!pause) {
+		STEPS++;
+		dSpaceCollide(space,0,&nearCallback);
+		dWorldStep(world,0.01);
+		dJointGroupEmpty(contactgroup);
+	}
 
+	// ロボットの描画
 	drawRobot();
 
 }
@@ -164,159 +163,159 @@ void createRobot()
 	dReal angle=0*M_PI/180;
 	dMatrix3 R;
 
-//球体の生成
-  obj[0].r    = 0.25;
-  obj[0].m    = 14.0;
-  obj[0].body = dBodyCreate(world);
-  dMassSetZero(&mass);
-  dMassSetSphereTotal(&mass,obj[0].m,obj[0].r);
-  dBodySetMass(obj[0].body,&mass);
-  dBodySetPosition(obj[0].body, x0, y0-2, z0+1);
+	//球体の生成
+	obj[0].r    = 0.25;
+	obj[0].m    = 14.0;
+	obj[0].body = dBodyCreate(world);
+	dMassSetZero(&mass);
+	dMassSetSphereTotal(&mass,obj[0].m,obj[0].r);
+	dBodySetMass(obj[0].body,&mass);
+	dBodySetPosition(obj[0].body, x0, y0-2, z0+1);
 
-  obj[0].geom = dCreateSphere(space,obj[0].r);
-  dGeomSetBody(obj[0].geom,obj[0].body);
-
-
-//円筒の生成
-  obj[1].r=0.1,obj[1].l=0.5,obj[1].m=1;
-
-  obj[1].body =dBodyCreate(world);
-  dMassSetZero(&mass);
-  dMassSetCylinderTotal(&mass,obj[1].m,3,obj[1].r,obj[1].l);
-  dBodySetMass(obj[1].body,&mass);
-  dBodySetPosition(obj[1].body,x0,y0-0.7,z0+1);
-
-  obj[1].geom = dCreateCylinder(space,obj[1].r,obj[1].l);
-  dGeomSetBody(obj[1].geom,obj[1].body);
-
-  dRFromAxisAndAngle(R,ax,ay,az,angle);
-  dBodySetRotation(obj[1].body,R);
+	obj[0].geom = dCreateSphere(space,obj[0].r);
+	dGeomSetBody(obj[0].geom,obj[0].body);
 
 
-//カプセルの生成
-  obj[2].r=0.1,obj[2].l=0.5,obj[2].m=1;
+	//円筒の生成
+	obj[1].r=0.1,obj[1].l=0.5,obj[1].m=1;
 
-  obj[2].body =dBodyCreate(world);
-  dMassSetZero(&mass);
-  dMassSetCapsuleTotal(&mass,obj[2].m,3,obj[2].r,obj[2].l);
-  dBodySetMass(obj[2].body,&mass);
-  dBodySetPosition(obj[2].body,x0,y0+0.7,z0+1);
+	obj[1].body =dBodyCreate(world);
+	dMassSetZero(&mass);
+	dMassSetCylinderTotal(&mass,obj[1].m,3,obj[1].r,obj[1].l);
+	dBodySetMass(obj[1].body,&mass);
+	dBodySetPosition(obj[1].body,x0,y0-0.7,z0+1);
 
-  obj[2].geom = dCreateCapsule(space,obj[2].r,obj[2].l);
-  dGeomSetBody(obj[2].geom,obj[2].body);
+	obj[1].geom = dCreateCylinder(space,obj[1].r,obj[1].l);
+	dGeomSetBody(obj[1].geom,obj[1].body);
 
-  dRFromAxisAndAngle(R,ax,ay,az,angle);
-  dBodySetRotation(obj[2].body,R);
-
-
-//長方形の生成
-  obj[3].x=0.3,obj[3].y=0.4,obj[3].z=0.5,obj[3].m=1;
-
-  obj[3].body =dBodyCreate(world);
-  dMassSetZero(&mass);
-  dMassSetBoxTotal(&mass,obj[3].m,obj[3].x,obj[3].y,obj[3].z);
-  dBodySetMass(obj[3].body,&mass);
-  dBodySetPosition(obj[3].body,x0,y0+2,z0+1);
-
-  obj[3].geom = dCreateBox(space,obj[3].x,obj[3].y,obj[3].z);
-  dGeomSetBody(obj[3].geom,obj[3].body);
-
-  dRFromAxisAndAngle(R,ax,ay,az,angle);
-  dBodySetRotation(obj[3].body,R);
+	dRFromAxisAndAngle(R,ax,ay,az,angle);
+	dBodySetRotation(obj[1].body,R);
 
 
+	//カプセルの生成
+	obj[2].r=0.1,obj[2].l=0.5,obj[2].m=1;
 
+	obj[2].body =dBodyCreate(world);
+	dMassSetZero(&mass);
+	dMassSetCapsuleTotal(&mass,obj[2].m,3,obj[2].r,obj[2].l);
+	dBodySetMass(obj[2].body,&mass);
+	dBodySetPosition(obj[2].body,x0,y0+0.7,z0+1);
+
+	obj[2].geom = dCreateCapsule(space,obj[2].r,obj[2].l);
+	dGeomSetBody(obj[2].geom,obj[2].body);
+
+	dRFromAxisAndAngle(R,ax,ay,az,angle);
+	dBodySetRotation(obj[2].body,R);
+
+
+	//長方形の生成
+	obj[3].x=0.3,obj[3].y=0.4,obj[3].z=0.5,obj[3].m=1;
+
+	obj[3].body =dBodyCreate(world);
+	dMassSetZero(&mass);
+	dMassSetBoxTotal(&mass,obj[3].m,obj[3].x,obj[3].y,obj[3].z);
+	dBodySetMass(obj[3].body,&mass);
+	dBodySetPosition(obj[3].body,x0,y0+2,z0+1);
+
+	obj[3].geom = dCreateBox(space,obj[3].x,obj[3].y,obj[3].z);
+	dGeomSetBody(obj[3].geom,obj[3].body);
+
+	dRFromAxisAndAngle(R,ax,ay,az,angle);
+	dBodySetRotation(obj[3].body,R);
 
 }
 
 //=======================================================================================//
-//									ロボットの破壊
+// ロボットの破壊
 //=======================================================================================//
 void destroyRobot()
 {
 
-  for (int i = 0; i < 4; i++) {
-    dBodyDestroy(obj[i].body);
-    dGeomDestroy(obj[i].geom); 
-  }
+	for (int i = 0; i < 4; i++) {
+		dBodyDestroy(obj[i].body);
+		dGeomDestroy(obj[i].geom); 
+	}
 
 }
 
 //=======================================================================================//
-//									リスタート関数
+// リスタート関数
 //=======================================================================================//
 static void restart()
 {
-  STEPS    = 0;      // ステップ数の初期化
-  S_LENGTH = 0.0;    // スライダ長の初期化
-  H_ANGLE  = 0.0;    // ヒンジ角度の初期化
+	STEPS    = 0;		// ステップ数の初期化
+	S_LENGTH = 0.0;		// スライダ長の初期化
+	H_ANGLE  = 0.0;		// ヒンジ角度の初期化
 
-  destroyRobot();  // ロボットの破壊
-  dJointGroupDestroy(contactgroup);     // ジョイントグループの破壊
-  contactgroup = dJointGroupCreate(0);  // ジョイントグループの生成
-  createRobot();				          // ロボットの生成
+	destroyRobot();		// ロボットの破壊
+	dJointGroupDestroy(contactgroup);		// ジョイントグループの破壊
+	contactgroup = dJointGroupCreate(0);	// ジョイントグループの生成
+	createRobot();							// ロボットの生成
 }
 
 //=======================================================================================//
-//										キー操作
+// キー操作
 //=======================================================================================//
 static void command(int cmd)
 {
- switch (cmd) {
-   case 'j':S_LENGTH =   0.25; break;
-   case 'f':S_LENGTH = - 0.25; break;
-   case 'k':H_ANGLE +=   0.25; break;
-   case 'd':H_ANGLE -=   0.25; break;
-   case 'r':restart()                           ; break;
-   default :printf("key missed \n")             ; break;
- }
+	switch (cmd) {
+		case 'j':S_LENGTH =   0.25; break;
+		case 'f':S_LENGTH = - 0.25; break;
+		case 'k':H_ANGLE +=   0.25; break;
+		case 'd':H_ANGLE -=   0.25; break;
+		case 'r':restart()                           ; break;
+		default :printf("key missed \n")             ; break;
+	}
 }
 
 //=======================================================================================//
-//									スタート関数
+// スタート関数
 //=======================================================================================//
 static void start()
 {
-  static float xyz[3] = {   3.5, 0.0, 1.0};
-  static float hpr[3] = {-180.0, 0.0, 0.0};
-  dsSetViewpoint(xyz,hpr);               // 視点，視線の設定
-  dsSetSphereQuality(3);                 // 球の品質設定
-}
-
-void setDrawStuff()           /*** 描画関数の設定 ***/
-{
-  fn.version = DS_VERSION;    // ドロースタッフのバージョン
-  fn.start   = &start;        // 前処理 start関数のポインタ
-  fn.step    = &simLoop;      // simLoop関数のポインタ
-  fn.command = &command;      // キー入力関数へのポインタ
-  fn.path_to_textures = "../../drawstuff/textures"; // テクスチャ
+	static float xyz[3] = {   3.5, 0.0, 1.0};
+	static float hpr[3] = {-180.0, 0.0, 0.0};
+	dsSetViewpoint(xyz,hpr);               // 視点，視線の設定
+	dsSetSphereQuality(3);                 // 球の品質設定
 }
 
 //=======================================================================================//
-//									メイン関数
+// 描画の設定
+//=======================================================================================//
+void setDrawStuff()
+{
+	fn.version = DS_VERSION;    // ドロースタッフのバージョン
+	fn.start   = &start;        // 前処理 start関数のポインタ
+	fn.step    = &simLoop;      // simLoop関数のポインタ
+	fn.command = &command;      // キー入力関数へのポインタ
+	fn.path_to_textures = "../../drawstuff/textures"; // テクスチャ
+}
+
+//=======================================================================================//
+// メイン関数
 //=======================================================================================//
 int main (int argc, char *argv[])
 {
-  dInitODE();
-  setDrawStuff();
+	dInitODE();
+	setDrawStuff();
 
-  world        = dWorldCreate();
-  space        = dHashSpaceCreate(0);
-  contactgroup = dJointGroupCreate(0);
+	world        = dWorldCreate();
+	space        = dHashSpaceCreate(0);
+	contactgroup = dJointGroupCreate(0);
 
-  dWorldSetGravity(world, 0,0, -9.8);
-  dWorldSetERP(world, 0.9);          // ERPの設定
-  dWorldSetCFM(world, 1e-4);         // CFMの設定
-  ground = dCreatePlane(space, 0, 0, 1, 0);
-  createRobot();
+	dWorldSetGravity(world, 0,0, -9.8);
+	dWorldSetERP(world, 0.9);          // ERPの設定
+	dWorldSetCFM(world, 1e-4);         // CFMの設定
+	ground = dCreatePlane(space, 0, 0, 1, 0);
+	createRobot();
 
-  dBodyDisable(obj[0].body);
-  dBodyDisable(obj[1].body);
-  dBodyDisable(obj[2].body);
-  dBodyDisable(obj[3].body);
-  dsSimulationLoop (argc, argv, 640, 480, &fn);
-  dWorldDestroy (world);
-  dCloseODE();
+	dBodyDisable(obj[0].body);
+	dBodyDisable(obj[1].body);
+	dBodyDisable(obj[2].body);
+	dBodyDisable(obj[3].body);
+	dsSimulationLoop (argc, argv, 640, 480, &fn);
+	dWorldDestroy (world);
+	dCloseODE();
 
-  return 0;
+	return 0;
 }
