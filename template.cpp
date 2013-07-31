@@ -12,10 +12,8 @@
 //=======================================================================================//
 // インクルードヘッダ
 //=======================================================================================//
-#include <ode/ode.h>
-#include <drawstuff/drawstuff.h>
-//#include "texturepath.h"
-
+#include <ode/ode.h>				// ODEライブラリのインクルード
+#include <drawstuff/drawstuff.h>	// drawstuffライブラリのインクルード
 
 //=======================================================================================//
 // 変数関数の定義宣言
@@ -32,105 +30,170 @@
 #define dsDrawCapsule  dsDrawCapsuleD
 #endif
 
-dWorldID world;  // 動力学計算用ワールド
-dSpaceID space;  // 衝突検出用スペース
-dGeomID  ground; // 地面
-dJointGroupID contactgroup; // コンタクトグループ
-dReal r = 0.2, m  = 1.0;
+dWorldID world;						// 動力学計算用ワールド
+dSpaceID space;						// 衝突検出用スペース
+dGeomID  ground;					// 地面
+dJointGroupID contactgroup;			// コンタクトグループ
 dsFunctions fn;
 
-typedef struct {       // MyObject構造体
-  dBodyID body;        // ボディ(剛体)のID番号（動力学計算用）
-  dGeomID geom;        // ジオメトリのID番号(衝突検出計算用）
-  double  l,r,x,y,z,m;       // 長さ[m], 半径[m]，質量[kg]
+typedef struct {					// MyObject構造体
+	dBodyID body;					// ボディ(剛体)のID番号（動力学計算用）
+	dGeomID geom;					// ジオメトリのID番号(衝突検出計算用）
+	double  l,r,x,y,z,m;			// 長さl[m], 半径r[m]，辺x,y,z[m], 質量m[kg]
 } MyObject;
 
-static MyObject obj[5];    // leg[0]:上脚, leg[1]:下脚
-static dJointID h_joint,s_joint; // ヒンジ, スライダー
-static int STEPS = 0;            // シミュレーションのステップ数
-static dReal S_LENGTH = 0.0;     // スライダー長
-static dReal H_ANGLE  = 0.0;     // ヒンジ角
+// MyObjectのインスタンス
+static MyObject sSphere, sCylinder, sCapsule, sBox;
 
-
+static int STEPS = 0;				// シミュレーションのステップ数
 
 //=======================================================================================//
 // 衝突検出
 //=======================================================================================//
 static void nearCallback(void *data, dGeomID o1, dGeomID o2)
 {
-  static const int N = 7;     // 接触点数
-  dContact contact[N];
+	static const int N = 7;     // 接触点数
+	dContact contact[N];
 
-  int isGround = ((ground == o1) || (ground == o2));
+	int isGround = ((ground == o1) || (ground == o2));
 
-  // 2つのボディがジョイントで結合されていたら衝突検出しない
-  dBodyID b1 = dGeomGetBody(o1);
-  dBodyID b2 = dGeomGetBody(o2);
-  if (b1 && b2 && dAreConnectedExcluding(b1,b2,dJointTypeContact)) return;
+	// 2つのボディがジョイントで結合されていたら衝突検出しない
+	dBodyID b1 = dGeomGetBody(o1);
+	dBodyID b2 = dGeomGetBody(o2);
+	if (b1 && b2 && dAreConnectedExcluding(b1,b2,dJointTypeContact)) return;
 
-  int n =  dCollide(o1,o2,N,&contact[0].geom,sizeof(dContact));
-  if (isGround)  {
-    for (int i = 0; i < n; i++) {
-      contact[i].surface.mode   = dContactBounce | dContactSoftERP |
-                                  dContactSoftCFM;
-      contact[i].surface.soft_erp   = 0.1;   // 接触点のERP
-      contact[i].surface.soft_cfm   = 0.001; // 接触点のCFM
-      contact[i].surface.mu     = dInfinity; // 摩擦係数:無限大
-      dJointID c = dJointCreateContact(world,
-                                       contactgroup,&contact[i]);
-      dJointAttach (c,dGeomGetBody(contact[i].geom.g1),
-                      dGeomGetBody(contact[i].geom.g2));
-    }
-  }
+	int n =  dCollide(o1,o2,N,&contact[0].geom,sizeof(dContact));
+	if (isGround)  {
+		for (int i = 0; i < n; i++) {
+			contact[i].surface.mode = dContactBounce | dContactSoftERP | dContactSoftCFM;
+			contact[i].surface.soft_erp = 0.1;			// 接触点のERP
+			contact[i].surface.soft_cfm = 0.001;		// 接触点のCFM
+			contact[i].surface.mu       = dInfinity;	// 摩擦係数:無限大
+			dJointID c = dJointCreateContact(world, contactgroup,&contact[i]);
+			dJointAttach(c,dGeomGetBody(contact[i].geom.g1),
+			dGeomGetBody(contact[i].geom.g2));
+		}
+	}
 }
 
-
-
-// ヒンジジョイントの制御
-static void controlHinge(dReal target)
+//=======================================================================================//
+// 物体の生成
+//=======================================================================================//
+void createObject()
 {
-  static dReal kp = 10.0, fmax = 1000;
+	dMass mass;
+	dReal x0=0,y0=0,z0=0;		// 基準点
+	dReal ax=1,ay=0,az=0;		// 回転軸（ｘ軸周り）
+	dReal angle=0*M_PI/180;		// 回転角度
+	dMatrix3 R;
 
-  dReal tmp   = dJointGetHingeAngle(h_joint);
-  dReal diff  = target - tmp;
-  if (diff >=   M_PI) diff -= 2.0 * M_PI; // diffが2πより小さく
-  if (diff <= - M_PI) diff += 2.0 * M_PI; // diffが-2πより大きく
-  dReal u     = kp * diff;
+	// 球体の生成
+	sSphere.r    = 0.25;
+	sSphere.m    = 14.0;
+	sSphere.body = dBodyCreate(world);
+	dMassSetZero(&mass);
+	dMassSetSphereTotal(&mass,sSphere.m,sSphere.r);
+	dBodySetMass(sSphere.body,&mass);
+	dBodySetPosition(sSphere.body, x0, y0-2, z0+1);
 
-  dJointSetHingeParam(h_joint, dParamVel,  u);
-  dJointSetHingeParam(h_joint, dParamFMax, fmax);
-}
+	sSphere.geom = dCreateSphere(space,sSphere.r);
+	dGeomSetBody(sSphere.geom,sSphere.body);
 
-// スライダージョイントの制御
-static void controlSlider(dReal target)
-{
-  static dReal max_force = 1000;
 
-  if (target > 0) dJointSetSliderParam(s_joint, dParamVel,  8.0);
-  else            dJointSetSliderParam(s_joint, dParamVel, -8.0);
-  dJointSetSliderParam(s_joint, dParamFMax, max_force);
+	// 円筒の生成
+	sCylinder.r=0.1,sCylinder.l=0.5,sCylinder.m=1;
+
+	sCylinder.body =dBodyCreate(world);
+	dMassSetZero(&mass);
+	dMassSetCylinderTotal(&mass,sCylinder.m,3,sCylinder.r,sCylinder.l);
+	dBodySetMass(sCylinder.body,&mass);
+	dBodySetPosition(sCylinder.body,x0,y0-0.7,z0+1);
+
+	sCylinder.geom = dCreateCylinder(space,sCylinder.r,sCylinder.l);
+	dGeomSetBody(sCylinder.geom,sCylinder.body);
+
+	dRFromAxisAndAngle(R,ax,ay,az,angle);
+	dBodySetRotation(sCylinder.body,R);
+
+
+	// カプセルの生成
+	sCapsule.r=0.1,sCapsule.l=0.5,sCapsule.m=1;
+
+	sCapsule.body =dBodyCreate(world);
+	dMassSetZero(&mass);
+	dMassSetCapsuleTotal(&mass,sCapsule.m,3,sCapsule.r,sCapsule.l);
+	dBodySetMass(sCapsule.body,&mass);
+	dBodySetPosition(sCapsule.body,x0,y0+0.7,z0+1);
+
+	sCapsule.geom = dCreateCapsule(space,sCapsule.r,sCapsule.l);
+	dGeomSetBody(sCapsule.geom,sCapsule.body);
+
+	dRFromAxisAndAngle(R,ax,ay,az,angle);
+	dBodySetRotation(sCapsule.body,R);
+
+
+	// ボックスの生成
+	sBox.x=0.3,sBox.y=0.4,sBox.z=0.5,sBox.m=1;
+
+	sBox.body =dBodyCreate(world);
+	dMassSetZero(&mass);
+	dMassSetBoxTotal(&mass,sBox.m,sBox.x,sBox.y,sBox.z);
+	dBodySetMass(sBox.body,&mass);
+	dBodySetPosition(sBox.body,x0,y0+2,z0+1);
+
+	sBox.geom = dCreateBox(space,sBox.x,sBox.y,sBox.z);
+	dGeomSetBody(sBox.geom,sBox.body);
+
+	dRFromAxisAndAngle(R,ax,ay,az,angle);
+	dBodySetRotation(sBox.body,R);
+
 }
 
 
 //=======================================================================================//
-// ロボットの描画
+// 物体の描画
 //=======================================================================================//
-static void drawRobot()
+static void drawObject()
 {
 	//球形の描画
 	dsSetColor(1.2,0.0,0.0); 
-	dsDrawSphere(dBodyGetPosition(obj[1].body),dBodyGetRotation(obj[0].body),obj[0].r);
+	dsDrawSphere(dBodyGetPosition(sSphere.body),dBodyGetRotation(sSphere.body),sSphere.r);
+
 	//円筒の描画
 	dsSetColor(1.2,1.0,0.0); 
-	dsDrawCylinder(dBodyGetPosition(obj[0].body),dBodyGetRotation(obj[1].body),obj[1].l,obj[1].r);
+	dsDrawCylinder(dBodyGetPosition(sCylinder.body),dBodyGetRotation(sCylinder.body),sCylinder.l,sCylinder.r);
+
 	//カプセルの描画
 	dsSetColor(1.2,0.0,1.0); 
-	dsDrawCapsule(dBodyGetPosition(obj[2].body),dBodyGetRotation(obj[2].body),obj[2].l,obj[2].r);
-	//長方形の描画
+	dsDrawCapsule(dBodyGetPosition(sCapsule.body),dBodyGetRotation(sCapsule.body),sCapsule.l,sCapsule.r);
+
+	//ボックスの描画
 	dsSetColor(0.2,0.0,0.0); 
 	dVector3 sides;
-	dGeomBoxGetLengths(obj[3].geom,sides);
-	dsDrawBox(dBodyGetPosition(obj[3].body),dBodyGetRotation(obj[3].body),sides);
+	dGeomBoxGetLengths(sBox.geom,sides);
+	dsDrawBox(dBodyGetPosition(sBox.body),dBodyGetRotation(sBox.body),sides);
+}
+
+//=======================================================================================//
+// 物体の破壊
+//=======================================================================================//
+void destroyObject()
+{
+	// 球体の破壊
+	dBodyDestroy(sSphere.body);
+	dGeomDestroy(sSphere.geom);
+
+	// 円筒の破壊
+	dBodyDestroy(sCylinder.body);
+	dGeomDestroy(sCylinder.geom);
+
+	// カプセルの破壊
+	dBodyDestroy(sCapsule.body);
+	dGeomDestroy(sCapsule.geom);
+
+	// ボックスの破壊
+	dBodyDestroy(sBox.body);
+	dGeomDestroy(sBox.geom);
 }
 
 //=======================================================================================//
@@ -146,95 +209,8 @@ static void simLoop(int pause)
 		dJointGroupEmpty(contactgroup);
 	}
 
-	// ロボットの描画
-	drawRobot();
-
-}
-
-//=======================================================================================//
-//									ロボットの生成
-//=======================================================================================//
-void createRobot()
-{
-	dMass mass;
-	dReal x0=0,y0=0,z0=0;
-	dReal x=0,y=0,z=0;
-	dReal ax=1,ay=0,az=0;
-	dReal angle=0*M_PI/180;
-	dMatrix3 R;
-
-	//球体の生成
-	obj[0].r    = 0.25;
-	obj[0].m    = 14.0;
-	obj[0].body = dBodyCreate(world);
-	dMassSetZero(&mass);
-	dMassSetSphereTotal(&mass,obj[0].m,obj[0].r);
-	dBodySetMass(obj[0].body,&mass);
-	dBodySetPosition(obj[0].body, x0, y0-2, z0+1);
-
-	obj[0].geom = dCreateSphere(space,obj[0].r);
-	dGeomSetBody(obj[0].geom,obj[0].body);
-
-
-	//円筒の生成
-	obj[1].r=0.1,obj[1].l=0.5,obj[1].m=1;
-
-	obj[1].body =dBodyCreate(world);
-	dMassSetZero(&mass);
-	dMassSetCylinderTotal(&mass,obj[1].m,3,obj[1].r,obj[1].l);
-	dBodySetMass(obj[1].body,&mass);
-	dBodySetPosition(obj[1].body,x0,y0-0.7,z0+1);
-
-	obj[1].geom = dCreateCylinder(space,obj[1].r,obj[1].l);
-	dGeomSetBody(obj[1].geom,obj[1].body);
-
-	dRFromAxisAndAngle(R,ax,ay,az,angle);
-	dBodySetRotation(obj[1].body,R);
-
-
-	//カプセルの生成
-	obj[2].r=0.1,obj[2].l=0.5,obj[2].m=1;
-
-	obj[2].body =dBodyCreate(world);
-	dMassSetZero(&mass);
-	dMassSetCapsuleTotal(&mass,obj[2].m,3,obj[2].r,obj[2].l);
-	dBodySetMass(obj[2].body,&mass);
-	dBodySetPosition(obj[2].body,x0,y0+0.7,z0+1);
-
-	obj[2].geom = dCreateCapsule(space,obj[2].r,obj[2].l);
-	dGeomSetBody(obj[2].geom,obj[2].body);
-
-	dRFromAxisAndAngle(R,ax,ay,az,angle);
-	dBodySetRotation(obj[2].body,R);
-
-
-	//長方形の生成
-	obj[3].x=0.3,obj[3].y=0.4,obj[3].z=0.5,obj[3].m=1;
-
-	obj[3].body =dBodyCreate(world);
-	dMassSetZero(&mass);
-	dMassSetBoxTotal(&mass,obj[3].m,obj[3].x,obj[3].y,obj[3].z);
-	dBodySetMass(obj[3].body,&mass);
-	dBodySetPosition(obj[3].body,x0,y0+2,z0+1);
-
-	obj[3].geom = dCreateBox(space,obj[3].x,obj[3].y,obj[3].z);
-	dGeomSetBody(obj[3].geom,obj[3].body);
-
-	dRFromAxisAndAngle(R,ax,ay,az,angle);
-	dBodySetRotation(obj[3].body,R);
-
-}
-
-//=======================================================================================//
-// ロボットの破壊
-//=======================================================================================//
-void destroyRobot()
-{
-
-	for (int i = 0; i < 4; i++) {
-		dBodyDestroy(obj[i].body);
-		dGeomDestroy(obj[i].geom); 
-	}
+	// 物体の描画
+	drawObject();
 
 }
 
@@ -243,14 +219,11 @@ void destroyRobot()
 //=======================================================================================//
 static void restart()
 {
-	STEPS    = 0;		// ステップ数の初期化
-	S_LENGTH = 0.0;		// スライダ長の初期化
-	H_ANGLE  = 0.0;		// ヒンジ角度の初期化
-
-	destroyRobot();		// ロボットの破壊
+	STEPS    = 0;							// ステップ数の初期化
+	destroyObject();						// ロボットの破壊
 	dJointGroupDestroy(contactgroup);		// ジョイントグループの破壊
 	contactgroup = dJointGroupCreate(0);	// ジョイントグループの生成
-	createRobot();							// ロボットの生成
+	createObject();							// ロボットの生成
 }
 
 //=======================================================================================//
@@ -259,11 +232,8 @@ static void restart()
 static void command(int cmd)
 {
 	switch (cmd) {
-		case 'j':S_LENGTH =   0.25; break;
-		case 'f':S_LENGTH = - 0.25; break;
-		case 'k':H_ANGLE +=   0.25; break;
-		case 'd':H_ANGLE -=   0.25; break;
 		case 'r':restart()                           ; break;
+		case 'q':exit(0)	                         ; break;
 		default :printf("key missed \n")             ; break;
 	}
 }
@@ -307,12 +277,13 @@ int main (int argc, char *argv[])
 	dWorldSetERP(world, 0.9);          // ERPの設定
 	dWorldSetCFM(world, 1e-4);         // CFMの設定
 	ground = dCreatePlane(space, 0, 0, 1, 0);
-	createRobot();
+	createObject();
 
-	dBodyDisable(obj[0].body);
-	dBodyDisable(obj[1].body);
-	dBodyDisable(obj[2].body);
-	dBodyDisable(obj[3].body);
+	//dBodyDisable(obj[0].body);
+	//dBodyDisable(sCylinder.body);
+	//dBodyDisable(sCapsule.body);
+	//dBodyDisable(sBox.body);
+
 	dsSimulationLoop (argc, argv, 640, 480, &fn);
 	dWorldDestroy (world);
 	dCloseODE();
