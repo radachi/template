@@ -12,7 +12,9 @@
 
 double func(){
 int a=1;
-a+=15;
+
+a+=25;
+
 return a ;}
 
 
