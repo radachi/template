@@ -12,7 +12,7 @@
 
 double func(){
 int a=1;
-a+=10;
+a+=20;
 return a ;}
 
 
